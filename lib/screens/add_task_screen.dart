@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
+import 'package:todolist/models/Task.dart';
+import 'package:todolist/services/task_service.dart';
 
 class AddTaskScreen extends StatefulWidget {
-  const AddTaskScreen({super.key});
+  final Function onTaskAdded;
+
+  const AddTaskScreen({super.key, required this.onTaskAdded});
 
   @override
   _AddTaskScreenState createState() => _AddTaskScreenState();
@@ -10,31 +15,26 @@ class AddTaskScreen extends StatefulWidget {
 class _AddTaskScreenState extends State<AddTaskScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+  bool _isCompleted = false;
 
-  // Campos para os dados adicionais da tarefa
-  bool _completed = false;
-  late String _id;
-  late DateTime _createdAt;
-  late DateTime _updatedAt;
+  late final TaskService _taskService;
 
   @override
   void initState() {
     super.initState();
-    _id = DateTime.now().millisecondsSinceEpoch.toString();
-    _createdAt = DateTime.now();
-    _updatedAt = DateTime.now();
+    _taskService = TaskService(Hive.box<Task>('tasks'));
   }
 
-  void _saveTask() {
-    print('Título: ${_titleController.text}');
-    print('Descrição: ${_descriptionController.text}');
-    print('ID: $_id');
-    print('Criado em: $_createdAt');
-    print('Atualizado em: $_updatedAt');
-    print('Completado: $_completed');
+  Future<void> _saveTask() async {
+    await _taskService.saveTask(
+      _titleController.text,
+      _descriptionController.text,
+      _isCompleted,
+    );
+    
+    widget.onTaskAdded(); 
 
-    // Fechar a tela após salvar
-    Navigator.pop(context);
+    Navigator.pop(context); 
   }
 
   @override
@@ -71,10 +71,10 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             const SizedBox(height: 16),
             SwitchListTile(
               title: const Text('Completada'),
-              value: _completed,
+              value: _isCompleted,
               onChanged: (value) {
                 setState(() {
-                  _completed = value;
+                  _isCompleted = value;
                 });
               },
             ),
