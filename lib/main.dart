@@ -1,10 +1,20 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:todolist/models/Task.dart';
 import 'package:todolist/screens/home_screen.dart';
 import 'package:todolist/services/theme_service.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter();
+  
+  Hive.registerAdapter(TaskAdapter());
+
+  if (!Hive.isBoxOpen('tasks')) {
+    await Hive.openBox<Task>('tasks');
+  }
+
   await Firebase.initializeApp();
 
   final themeService = ThemeService();
