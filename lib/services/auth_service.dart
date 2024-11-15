@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -11,13 +12,14 @@ class AuthService {
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
-        return null; // O usuário cancelou o login
+        return null;
       }
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
 
       print('ID Token: ${googleAuth.idToken}');
-      
+
       // Enviar o idToken para o backend
       await sendIdTokenToServer(googleAuth.idToken);
 
@@ -26,7 +28,8 @@ class AuthService {
         idToken: googleAuth.idToken,
       );
 
-      final UserCredential userCredential = await _auth.signInWithCredential(credential);
+      final UserCredential userCredential =
+          await _auth.signInWithCredential(credential);
       return userCredential.user;
     } catch (error) {
       print('Erro no signInWithGoogle: $error');
@@ -38,8 +41,10 @@ class AuthService {
     if (idToken == null) return;
 
     try {
+      final apiUrl = dotenv.env['API_URL'];
+
       final response = await http.post(
-        Uri.parse('http://192.168.1.33:8080/auth/login'), // Substitua pela URL pelo ip + porta local em que está rodando a Api
+        Uri.parse(apiUrl!),
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8',
         },
@@ -50,7 +55,6 @@ class AuthService {
 
       if (response.statusCode == 200) {
         print('Token enviado com sucesso!');
-        // Lógica adicional após enviar o token com sucesso
       } else {
         print('Erro ao enviar o token: ${response.statusCode}, ${response.body}');
       }
