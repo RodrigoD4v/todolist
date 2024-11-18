@@ -1,8 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -18,48 +15,19 @@ class AuthService {
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
 
-      print('ID Token: ${googleAuth.idToken}');
-
-      // Enviar o idToken para o backend
-      await sendIdTokenToServer(googleAuth.idToken);
-
+      // Credenciais para autenticar com o Firebase
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
+      // Realiza o login no Firebase
       final UserCredential userCredential =
           await _auth.signInWithCredential(credential);
       return userCredential.user;
     } catch (error) {
       print('Erro no signInWithGoogle: $error');
       return null;
-    }
-  }
-
-  Future<void> sendIdTokenToServer(String? idToken) async {
-    if (idToken == null) return;
-
-    try {
-      final apiUrl = dotenv.env['API_URL'];
-
-      final response = await http.post(
-        Uri.parse(apiUrl!),
-        headers: <String, String>{
-          'Content-Type': 'application/json; charset=UTF-8',
-        },
-        body: jsonEncode(<String, String>{
-          'idToken': idToken,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        print('Token enviado com sucesso!');
-      } else {
-        print('Erro ao enviar o token: ${response.statusCode}, ${response.body}');
-      }
-    } catch (e) {
-      print('Erro na requisição ao servidor: $e');
     }
   }
 
