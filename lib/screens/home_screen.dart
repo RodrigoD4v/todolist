@@ -4,6 +4,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:todolist/models/Task.dart';
+import 'package:todolist/services/task_service.dart';
 import 'add_task_screen.dart';
 import '../services/auth_service.dart';
 import 'dart:convert';
@@ -28,18 +29,29 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _tasksFuture = Future.value([]); 
+    _tasksFuture = Future.value([]);
     _initializeApp();
   }
 
   Future<void> _initializeApp() async {
     await _openTaskBox();
     await _checkUserStatus();
+
+    if (_user != null) {
+      final taskService = TaskService(_taskBox);
+      await taskService.syncTasksAfterLogin();
+    }
   }
+
+  Future<void> _onRefresh() async {
+  setState(() {
+    _tasksFuture = _loadTasks();
+  });
+}
 
   Future<void> _openTaskBox() async {
     _taskBox = await Hive.openBox<Task>('tasks');
-    _tasksFuture = _loadTasks(); 
+    _tasksFuture = _loadTasks();
     setState(() {});
   }
 
@@ -53,21 +65,20 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_user == null) {
       return _taskBox.values.toList();
     } else {
-    // Buscar tarefas do Firestore via backend Spring
-    final userUid = _user!.uid;
-    final response = await http.get(
-      Uri.parse('$apiUrl/tasks/$userUid'),
-    );
+      // Buscar tarefas do Firestore via backend Spring
+      final userUid = _user!.uid;
+      final response = await http.get(
+        Uri.parse('$apiUrl/tasks/$userUid'),
+      );
 
-    if (response.statusCode == 200) {
-      final List<dynamic> tasksJson = json.decode(response.body);
-      // Agora utilizando o método fromFirestore para converter os dados
-      return tasksJson.map((taskJson) => Task.fromJson(taskJson)).toList();
-    } else {
-      throw Exception('Erro ao carregar tarefas');
+      if (response.statusCode == 200) {
+        final List<dynamic> tasksJson = json.decode(utf8.decode(response.bodyBytes));
+        return tasksJson.map((taskJson) => Task.fromJson(taskJson)).toList();
+      } else {
+        throw Exception('Erro ao carregar tarefas');
+      }
     }
   }
-}
 
   // Função de login com Google
   Future<void> _loginWithGoogle() async {
@@ -78,6 +89,10 @@ class _HomeScreenState extends State<HomeScreen> {
           _user = user;
           _tasksFuture = _loadTasks();
         });
+
+        final taskService = TaskService(_taskBox);
+        await taskService.syncTasksAfterLogin();
+
         print('Usuário logado: ${user.displayName}');
       } else {
         print('Login cancelado');
@@ -92,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await _authService.signOut();
     setState(() {
       _user = null;
-      _tasksFuture = _loadTasks(); 
+      _tasksFuture = _loadTasks();
     });
     print('Usuário deslogado');
     Navigator.pop(context);
@@ -167,10 +182,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onTaskAdded() {
-  setState(() {
-    _tasksFuture = _loadTasks(); 
-  });
-}
+    setState(() {
+      _tasksFuture = _loadTasks();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -219,26 +234,44 @@ class _HomeScreenState extends State<HomeScreen> {
               return const Center(child: Text('Nenhuma tarefa salva'));
             }
 
-            final tasks = snapshot.data!; 
+            final tasks = snapshot.data!;
 
-            return ListView.builder(
-              itemCount: tasks.length,
-              itemBuilder: (context, index) {
-                final task = tasks[index];
-                return ListTile(
-                  title: Text(task.title),
-                  subtitle: Text(task.description),
-                  trailing: Icon(
-                    task.completed
-                        ? Icons.check_box
-                        : Icons.check_box_outline_blank,
-                    color: task.completed ? Colors.green : Colors.grey,
-                  ),
-                  onTap: () {
-                    // Aqui pode-se implementar a edição ou marcação de tarefa como concluída
-                  },
-                );
-              },
+            return RefreshIndicator(
+              onRefresh: _onRefresh, // Método de recarregar as tarefas
+              child: ListView.builder(
+                itemCount: tasks.length,
+                itemBuilder: (context, index) {
+                  final task = tasks[index];
+                  return ListTile(
+                    title: Text(task.title),
+                    subtitle: Text(task.description),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            task.completed ? Icons.check_box : Icons.check_box_outline_blank,
+                            color: task.completed ? Colors.green : Colors.grey,
+                          ),
+                          onPressed: () {
+                            // Implementar a marcação da tarefa como concluída
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () async {
+                            // Excluir tarefa ao clicar no botão
+                            await TaskService(_taskBox).deleteTask(task.id); // Espera a exclusão
+                            setState(() {
+                              _tasksFuture = _loadTasks(); // Recarrega a lista de tarefas após a exclusão
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             );
           },
         ),
