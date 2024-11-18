@@ -1,10 +1,13 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:todolist/models/Task.dart';
 import 'add_task_screen.dart';
 import '../services/auth_service.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class HomeScreen extends StatefulWidget {
   final Function(ThemeMode) onThemeChanged;
@@ -20,6 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   User? _user;
   late Box<Task> _taskBox;
   late Future<List<Task>> _tasksFuture;
+  String? apiUrl = dotenv.env['API_URL'];
 
   @override
   void initState() {
@@ -49,11 +53,21 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_user == null) {
       return _taskBox.values.toList();
     } else {
-      // Lógica de tarefas do Firestore será adicionada futuramente
-      print("Usuário logado. Tarefas do Firestore ainda não implementadas.");
-      return [];
+    // Buscar tarefas do Firestore via backend Spring
+    final userUid = _user!.uid;
+    final response = await http.get(
+      Uri.parse('$apiUrl/tasks/$userUid'),
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> tasksJson = json.decode(response.body);
+      // Agora utilizando o método fromFirestore para converter os dados
+      return tasksJson.map((taskJson) => Task.fromJson(taskJson)).toList();
+    } else {
+      throw Exception('Erro ao carregar tarefas');
     }
   }
+}
 
   // Função de login com Google
   Future<void> _loginWithGoogle() async {
