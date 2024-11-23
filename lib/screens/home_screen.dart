@@ -4,6 +4,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:todolist/models/Task.dart';
+import 'package:todolist/screens/edit_task_screen.dart';
 import 'package:todolist/services/task_service.dart';
 import 'add_task_screen.dart';
 import '../services/auth_service.dart';
@@ -237,42 +238,65 @@ class _HomeScreenState extends State<HomeScreen> {
             final tasks = snapshot.data!;
 
             return RefreshIndicator(
-              onRefresh: _onRefresh, // Método de recarregar as tarefas
-              child: ListView.builder(
-                itemCount: tasks.length,
-                itemBuilder: (context, index) {
-                  final task = tasks[index];
-                  return ListTile(
-                    title: Text(task.title),
-                    subtitle: Text(task.description),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: Icon(
-                            task.completed ? Icons.check_box : Icons.check_box_outline_blank,
-                            color: task.completed ? Colors.green : Colors.grey,
-                          ),
-                          onPressed: () {
-                            // Implementar a marcação da tarefa como concluída
-                          },
+            onRefresh: _onRefresh, 
+            child: ListView.builder(
+              itemCount: tasks.length,
+              itemBuilder: (context, index) {
+                final task = tasks[index];
+                return ListTile(
+                  title: Text(task.title),
+                  subtitle: Text(task.description),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          task.completed ? Icons.check_box : Icons.check_box_outline_blank,
+                          color: task.completed ? Colors.green : Colors.grey,
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () async {
-                            // Excluir tarefa ao clicar no botão
-                            await TaskService(_taskBox).deleteTask(task.id); // Espera a exclusão
-                            setState(() {
-                              _tasksFuture = _loadTasks(); // Recarrega a lista de tarefas após a exclusão
-                            });
-                          },
+                        onPressed: () async {
+                          await TaskService(_taskBox).editTask(
+                            task.id, 
+                            task.title, 
+                            task.description, 
+                            !task.completed, 
+                          );
+                          setState(() {
+                            _tasksFuture = _loadTasks(); 
+                          });
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () async {
+                          // Excluir tarefa ao clicar no botão
+                          await TaskService(_taskBox).deleteTask(task.id);
+                          setState(() {
+                            _tasksFuture = _loadTasks();
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  onTap: () async {
+                    // Navegar para a tela de edição
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => EditTaskScreen(
+                          task: task,
+                          onTaskUpdated: _onRefresh,
                         ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            );
+                      ),
+                    );
+                    setState(() {
+                      _tasksFuture = _loadTasks();
+                    });
+                  },
+                );
+              },
+            ),
+          );
           },
         ),
       ),
