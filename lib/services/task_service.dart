@@ -12,7 +12,8 @@ class TaskService {
 
   TaskService(this.taskBox);
 
-    Future<void> syncTasksAfterLogin() async {
+  // Função para sincronizar as tarefas após o login
+  Future<void> syncTasksAfterLogin() async {
     if (_auth.currentUser != null) {
       await syncTasksWithApi();
     }
@@ -48,23 +49,15 @@ class TaskService {
             }),
           );
 
-          if (response.statusCode == 200) {
-            print("Tarefa sincronizada com sucesso.");
-          } else {
-            print("Erro ao sincronizar tarefa: ${response.body}");
-          }
         } catch (error) {
           print("Erro ao enviar tarefa para a API: $error");
         }
-      } else {
-        print("Usuário não está autenticado.");
-      }
+      } 
     }
   }
 
-  // Salvar tarefa no Hive
-  Future<void> saveTask(
-      String title, String description, bool isCompleted) async {
+  // Função para salvar tarefa no Hive
+  Future<void> saveTask(String title, String description, bool isCompleted) async {
     var uuid = const Uuid();
     final newTask = Task(
       id: uuid.v4(),
@@ -101,22 +94,64 @@ class TaskService {
           },
         );
 
-        if (response.statusCode == 200) {
-          print("Tarefa excluída com sucesso.");
-          
+        if (response.statusCode == 200) {         
           // Excluir tarefa localmente do Hive
           final taskIndex = taskBox.values.toList().indexWhere((task) => task.id == taskId);
           if (taskIndex != -1) {
             await taskBox.deleteAt(taskIndex);
           }
-        } else {
-          print("Erro ao excluir tarefa: ${response.body}");
-        }
+        } 
       } catch (error) {
         print("Erro ao excluir tarefa: $error");
       }
+    } 
+  }
+
+  // Função para editar tarefa localmente ou na API se necessário
+  Future<void> editTask(String taskId, String newTitle, String newDescription, bool newCompletionStatus) async {
+    final taskIndex = taskBox.values.toList().indexWhere((task) => task.id == taskId);
+
+    if (taskIndex != -1) {
+      final taskToUpdate = taskBox.getAt(taskIndex);
+      taskToUpdate!.title = newTitle;
+      taskToUpdate.description = newDescription;
+      taskToUpdate.completed = newCompletionStatus;
+      taskToUpdate.updatedAt = DateTime.now();
+
+      await taskBox.putAt(taskIndex, taskToUpdate);
+
+      // Sincroniza com a API
+      await syncTasksWithApi();
     } else {
-      print("Usuário não está autenticado.");
+      User? user = _auth.currentUser;
+      if (user != null) {
+        try {
+          String? apiUrl = dotenv.env['API_URL'];
+          if (apiUrl == null || apiUrl.isEmpty) {
+            print("URL da API não configurada.");
+            return;
+          }
+
+          final updatedTask = {
+            'id': taskId,
+            'title': newTitle,
+            'description': newDescription,
+            'completed': newCompletionStatus,
+            'updatedAt': DateTime.now().toIso8601String(),
+          };
+
+          final response = await http.put(
+            Uri.parse('$apiUrl/tasks/${user.uid}/$taskId'),
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode(updatedTask),
+          );
+
+        } catch (error) {
+          print("Erro ao fazer PUT na API: $error");
+        }
+      }
     }
   }
 }
