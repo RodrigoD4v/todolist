@@ -3,12 +3,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeService {
   static const _themeKey = 'themeMode';
-
+  // Salva o modo de tema selecionado (claro, escuro ou sistema) nas preferências compartilhadas.
   Future<void> saveThemeMode(ThemeMode themeMode) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_themeKey, themeMode.index);
   }
-
+  // Recupera o modo de tema salvo nas preferências compartilhadas ou retorna o padrão do sistema, se não estiver configurado.
   Future<ThemeMode> getThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
     final themeIndex = prefs.getInt(_themeKey) ?? ThemeMode.system.index;

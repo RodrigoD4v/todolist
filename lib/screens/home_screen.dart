@@ -33,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _tasksFuture = Future.value([]);
     _initializeApp();
   }
-
+  // Inicializa o app, abre o Hive box e verifica o status do usuário.
   Future<void> _initializeApp() async {
     await _openTaskBox();
     await _checkUserStatus();
@@ -49,19 +49,19 @@ class _HomeScreenState extends State<HomeScreen> {
     _tasksFuture = _loadTasks();
   });
 }
-
+  // Abre o Hive box de tarefas.
   Future<void> _openTaskBox() async {
     _taskBox = await Hive.openBox<Task>('tasks');
     _tasksFuture = _loadTasks();
     setState(() {});
   }
-
+   // Verifica se o usuário está autenticado.
   Future<void> _checkUserStatus() async {
     _user = FirebaseAuth.instance.currentUser;
     _tasksFuture = _loadTasks();
     setState(() {});
   }
-
+    // Carrega as tarefas locais ou busca do servidor se o usuário estiver logado.
   Future<List<Task>> _loadTasks() async {
     if (_user == null) {
       return _taskBox.values.toList();
